@@ -156,7 +156,7 @@ if init_from == 'scratch':
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
 elif init_from == 'resume':
-    print(f"Resuming training from {out_dir}")
+    logging.info(f"Resuming training from {out_dir}")
     # resume training from a checkpoint.
     ckpt_path = os.path.join(out_dir, 'ckpt.pt')
     checkpoint = torch.load(ckpt_path, map_location=device)
@@ -193,7 +193,7 @@ if block_size < model.config.block_size:
 model.to(device)
 
 # initialize a GradScaler. If enabled=False scaler is a no-op
-scaler = torch.cuda.amp.GradScaler(enabled=(dtype == 'float16'))
+scaler = torch.amp.GradScaler('cuda', enabled=(dtype == 'float16'))
 
 # optimizer
 optimizer = model.configure_optimizers(weight_decay, learning_rate, (beta1, beta2), device_type)
@@ -244,7 +244,12 @@ def get_lr(it):
 # logging
 if wandb_log and master_process:
     import wandb
+    # Set wandb to offline mode to prevent it from getting stuck trying to connect
+    #os.environ["WANDB_MODE"] = "offline"
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
+    # disable console capture, as we are using Python's logging module
+    #settings = wandb.Settings(console="off")
+    #wandb.init(project=wandb_project, name=wandb_run_name, config=config, settings=settings)
 
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
@@ -264,13 +269,16 @@ while True:
         losses = estimate_loss()
         print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
         if wandb_log:
-            wandb.log({
+            metrics = {
                 "iter": iter_num,
                 "train/loss": losses['train'],
                 "val/loss": losses['val'],
                 "lr": lr,
-                "mfu": running_mfu*100, # convert to percentage
-            })
+            }
+            if iter_num > 0:
+                metrics['mfu'] = running_mfu * 100
+                metrics['tokens/sec'] = tokens_per_iter/dt
+            wandb.log(metrics)
         if losses['val'] < best_val_loss or always_save_checkpoint:
             best_val_loss = losses['val']
             if iter_num > 0:
@@ -284,6 +292,17 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
+        if iter_num in [10, 250, 1000]:
+            checkpoint = {
+                'model': raw_model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'model_args': model_args,
+                'iter_num': iter_num,
+                'best_val_loss': best_val_loss,
+                'config': config,
+            }
+            print(f"saving checkpoint to {out_dir} at iter {iter_num}")
+            torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{iter_num}.pt'))
     if iter_num == 0 and eval_only:
         break
 
@@ -324,7 +343,16 @@ while True:
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
+        tokens_per_sec = tokens_per_iter / dt
+        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%, tok/sec {tokens_per_sec:.2f}")
+        if wandb_log and local_iter_num >= 5:
+            wandb.log({
+                "iter": iter_num,
+                "train/loss": lossf,
+                "mfu": running_mfu * 100,
+                "tokens/sec": tokens_per_iter / dt,
+                "lr": lr
+            }, step=iter_num)
     iter_num += 1
     local_iter_num += 1
 
@@ -334,3 +362,7 @@ while True:
 
 if ddp:
     destroy_process_group()
+
+# gracefully finish wandb
+if wandb_log and master_process:
+    wandb.finish()
