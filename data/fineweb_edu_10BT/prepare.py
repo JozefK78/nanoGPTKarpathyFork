@@ -4,6 +4,23 @@ import numpy as np
 import tiktoken
 from datasets import load_dataset # huggingface datasets
 
+# Set Hugging Face cache directories to use the network drive
+os.environ["HF_HOME"] = "/workspace/hf_cache"
+os.environ["HF_DATASETS_CACHE"] = "/workspace/hf_cache/datasets"
+os.environ["TRANSFORMERS_CACHE"] = "/workspace/hf_cache/transformers"
+os.environ["HF_DATASETS_IN_PROGRESS_DIR"] = "/workspace/hf_cache/datasets_in_progress"
+
+# Set temporary directory for other libraries like pyarrow, and be thorough
+os.environ["TMPDIR"] = "/workspace/tmp"
+os.environ["TEMP"] = "/workspace/tmp"
+os.environ["TMP"] = "/workspace/tmp"
+
+# Create all directories if they don't exist to avoid any errors
+os.makedirs(os.environ["HF_DATASETS_CACHE"], exist_ok=True)
+os.makedirs(os.environ["TRANSFORMERS_CACHE"], exist_ok=True)
+os.makedirs(os.environ["HF_DATASETS_IN_PROGRESS_DIR"], exist_ok=True)
+os.makedirs(os.environ["TMPDIR"], exist_ok=True)
+
 # number of workers in .map() call
 # good number to use is ~order number of cpu cores // 2
 num_proc = 8
@@ -18,7 +35,9 @@ enc = tiktoken.get_encoding("gpt2")
 if __name__ == '__main__':
     # remote_name for HuggingFaceFW/fineweb-edu
     remote_name = "sample-10BT"
-    dataset = load_dataset("HuggingFaceFW/fineweb-edu", name=remote_name, split="train", num_proc=num_proc_load_dataset)
+    dataset = load_dataset("HuggingFaceFW/fineweb-edu", 
+        name=remote_name, split="train", num_proc=num_proc_load_dataset, 
+        cache_dir=os.environ["HF_DATASETS_CACHE"])
 
     # owt by default only contains the 'train' split, so create a test split
     split_dataset = dataset.train_test_split(test_size=0.0005, seed=2357, shuffle=True)
@@ -61,7 +80,7 @@ if __name__ == '__main__':
         filename = os.path.join(os.path.dirname(__file__), f'{split}.bin')
         dtype = np.uint16 # (can do since enc.max_token_value == 50256 is < 2**16)
         arr = np.memmap(filename, dtype=dtype, mode='w+', shape=(arr_len,))
-        total_batches = 128
+        total_batches = 1024
 
         idx = 0
         for batch_idx in tqdm(range(total_batches), desc=f'writing {filename}'):
