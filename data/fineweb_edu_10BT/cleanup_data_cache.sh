@@ -1,86 +1,57 @@
 #!/bin/bash
 
+# This script cleans up all artifacts from the data preparation process.
+# It is designed to be run before starting a fresh run of prepare.py.
+
 # --- Configuration ---
-# Please verify this is the correct base path for your network drive.
 NETWORK_DRIVE_BASE="/workspace"
 
-# --- Define Directories to Clean ---
-
-# 1. Network Drive Directories
-# These are the cache, temp, and output directories located on your network drive.
+# --- Paths to Clean ---
 HF_CACHE_DIR="${NETWORK_DRIVE_BASE}/hf_cache"
 TMP_DIR="${NETWORK_DRIVE_BASE}/tmp"
 DATA_OUTPUT_DIR="${NETWORK_DRIVE_BASE}/nanoGPTKarpathyFork/data/fineweb_edu_10BT"
+TOKENIZED_CACHE_PATH="${DATA_OUTPUT_DIR}/tokenized_dataset_cache"
 
-# 2. Ephemeral Drive Directories (Common Locations)
-# These are the default locations that libraries often fall back to if environment
-# variables are not set correctly or are ignored by a subprocess.
+# Local ephemeral drive temp directories
 EPHEMERAL_TMP="/tmp"
-# The default Hugging Face cache location is inside the user's home directory.
-# The `~` character is a shortcut for the home directory (e.g., /root or /home/user).
-EPHEMERAL_HF_CACHE_DEFAULT_1=~/.cache/huggingface
-EPHEMERAL_HF_CACHE_DEFAULT_2=/root/.cache/huggingface
-
-# --- Safety Check and Confirmation ---
+EPHEMERAL_HF_CACHE_DEFAULT=~/.cache/huggingface
 
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-echo "!!!                     DANGER ZONE                        !!!"
-echo "!!! This script will PERMANENTLY DELETE generated files    !!!"
-echo "!!! and caches from previous runs.                       !!!"
+echo "!!!                     CLEANUP SCRIPT                     !!!"
+echo "!!! This will PERMANENTLY DELETE generated files & caches. !!!"
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo
-echo "The following directories on the NETWORK DRIVE will be completely deleted:"
-echo "  - Cache: ${HF_CACHE_DIR}"
-echo "  - Temp:  ${TMP_DIR}"
+
+echo "The following will be DELETED from the NETWORK DRIVE (/workspace):"
+echo "  - Full Hugging Face cache: ${HF_CACHE_DIR}"
+echo "  - General temp directory:  ${TMP_DIR}"
+echo "  - Saved tokenized cache:   ${TOKENIZED_CACHE_PATH}"
+echo "  - Final output files:      ${DATA_OUTPUT_DIR}/*.bin"
 echo
-echo "The following GENERATED FILES on the NETWORK DRIVE will be deleted:"
-echo "  - Output Files: ${DATA_OUTPUT_DIR}/*.bin"
-echo "  (Your scripts in this directory will NOT be deleted)"
-echo
-echo "The following common directories on the EPHEMERAL DRIVE will be cleaned:"
+echo "The following will be DELETED from the EPHEMERAL DRIVE:"
 echo "  - Contents of ${EPHEMERAL_TMP}"
-echo "  - ${EPHEMERAL_HF_CACHE_DEFAULT_1}"
-echo "  - ${EPHEMERAL_HF_CACHE_DEFAULT_2}"
-echo
-echo "Please double-check these actions. There is no undo."
+echo "  - Default HF cache: ${EPHEMERAL_HF_CACHE_DEFAULT}"
 echo
 
 read -p "Are you absolutely sure you want to proceed? (y/n) " -n 1 -r
-echo    # move to a new line
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Cleanup cancelled."
     exit 1
 fi
 
-# --- Execution ---
-
-echo
 echo "Proceeding with cleanup..."
 
-# Clean Network Drive Caches and Temp
-echo "Cleaning network drive cache and temp directories..."
+# Clean Network Drive
+echo "Cleaning network drive..."
 rm -rf "${HF_CACHE_DIR}"
 rm -rf "${TMP_DIR}"
-echo "Cache and temp directories cleaned."
-echo
-
-# Clean Network Drive Output Files (*.bin)
-echo "DISABLED! - Deleting *.bin files from the output directory..."
-# SAFER: Only deletes files ending in .bin inside the directory.
-# The -f flag prevents errors if no *.bin files exist.
-#rm -f "${DATA_OUTPUT_DIR}"/*.bin
-echo "Generated .bin files deleted."
-echo
+rm -rf "${TOKENIZED_CACHE_PATH}"
+rm -f "${DATA_OUTPUT_DIR}"/*.bin
 
 # Clean Ephemeral Drive
-echo "Cleaning ephemeral drive directories..."
-# For /tmp, we delete the contents, not the directory itself.
-# Using 'find' is safer than 'rm -rf /tmp/*' in case of strange filenames.
+echo "Cleaning ephemeral drive..."
 find "${EPHEMERAL_TMP}" -mindepth 1 -delete
-rm -rf "${EPHEMERAL_HF_CACHE_DEFAULT_1}"
-rm -rf "${EPHEMERAL_HF_CACHE_DEFAULT_2}"
-echo "Ephemeral drive cleanup complete."
-echo
+rm -rf "${EPHEMERAL_HF_CACHE_DEFAULT}"
 
-echo "All specified directories have been cleaned."
+echo "Cleanup complete."
