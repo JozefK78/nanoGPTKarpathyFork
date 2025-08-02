@@ -2,7 +2,8 @@ import os
 from tqdm import tqdm
 import numpy as np
 import tiktoken
-from datasets import load_dataset, DownloadConfig # <-- IMPORT DownloadConfig
+# We do NOT import or use DownloadConfig
+from datasets import load_dataset
 
 # --- Centralized Path Configuration ---
 NETWORK_DRIVE_BASE = "/workspace"
@@ -11,11 +12,13 @@ HF_CACHE_DIR = os.path.join(NETWORK_DRIVE_BASE, "hf_cache")
 TMP_DIR = os.path.join(NETWORK_DRIVE_BASE, "tmp")
 
 # --- Environment Variable Setup ---
+# This is the correct and primary way to control caches and temp files in datasets v4.0.0
 os.environ["HF_HOME"] = HF_CACHE_DIR
 os.environ["HF_DATASETS_CACHE"] = os.path.join(HF_CACHE_DIR, "datasets")
 os.environ["TRANSFORMERS_CACHE"] = os.path.join(HF_CACHE_DIR, "transformers")
 os.environ["HF_MODULES_CACHE"] = os.path.join(HF_CACHE_DIR, "modules")
-os.environ["HF_DATASETS_IN_PROGRESS_DIR"] = os.path.join(HF_CACHE_DIR, "datasets_in_progress")
+# This is the key variable that the dataset builder will use for its temporary files.
+os.environ["HF_DATASETS_IN_PROGRESS_DIR"] = os.path.join(TMP_DIR, "hf_datasets_in_progress")
 
 # Set temporary directory for all other libraries
 os.environ["TMPDIR"] = TMP_DIR
@@ -23,6 +26,7 @@ os.environ["TEMP"] = TMP_DIR
 os.environ["TMP"] = TMP_DIR
 
 # --- Create all necessary directories ---
+# This ensures the library doesn't fail trying to create a directory.
 os.makedirs(os.environ["HF_DATASETS_CACHE"], exist_ok=True)
 os.makedirs(os.environ["TRANSFORMERS_CACHE"], exist_ok=True)
 os.makedirs(os.environ["HF_MODULES_CACHE"], exist_ok=True)
@@ -36,26 +40,21 @@ num_proc_load_dataset = num_proc
 enc = tiktoken.get_encoding("gpt2")
 
 if __name__ == '__main__':
-    # --- The definitive fix for temporary files ---
-    # Force the downloader and dataset builder to use your network temp directory.
-    download_config = DownloadConfig(
-        cache_dir=os.environ["HF_DATASETS_CACHE"],
-        temp_dir=os.environ["TMPDIR"]
-    )
-
     # remote_name for HuggingFaceFW/fineweb-edu
     remote_name = "sample-10BT"
-    print("Loading dataset. This may take a while, but all temporary files will be on the network drive.")
+    print("Loading dataset using environment variables for temporary file placement...")
+    
+    # This call correctly uses the environment variables set above for caching and temp files.
     dataset = load_dataset("HuggingFaceFW/fineweb-edu",
         name=remote_name,
         split="train",
         num_proc=num_proc_load_dataset,
-        download_config=download_config, # <-- PASS THE CONFIG HERE
+        cache_dir=os.environ["HF_DATASETS_CACHE"],
     )
 
     # owt by default only contains the 'train' split, so create a test split
     split_dataset = dataset.train_test_split(test_size=0.0005, seed=2357, shuffle=True)
-    split_dataset['val'] = split_dataset.pop('test') # rename the test split to val
+    split_dataset['val'] = split_dataset.pop('test')
 
     def process(example):
         ids = enc.encode_ordinary(example['text'])
@@ -90,4 +89,4 @@ if __name__ == '__main__':
         
         arr.flush()
 
-    print("Data preparation complete. All files have been written to the network drive.")
+    print("Data preparation complete. All files written to the network drive.")
