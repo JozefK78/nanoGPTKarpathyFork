@@ -66,10 +66,10 @@ echo "Cache and temp directories cleaned."
 echo
 
 # Clean Network Drive Output Files (*.bin)
-echo "Deleting *.bin files from the output directory..."
+echo "DISABLED! - Deleting *.bin files from the output directory..."
 # SAFER: Only deletes files ending in .bin inside the directory.
 # The -f flag prevents errors if no *.bin files exist.
-rm -f "${DATA_OUTPUT_DIR}"/*.bin
+#rm -f "${DATA_OUTPUT_DIR}"/*.bin
 echo "Generated .bin files deleted."
 echo
 
