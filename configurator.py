@@ -19,6 +19,10 @@ from ast import literal_eval
 
 for arg in sys.argv[1:]:
     if '=' not in arg:
+        if arg == '--debug':
+            print("Overriding: debug_batches = True")
+            globals()['debug_batches'] = True
+            continue
         # assume it's the name of a config file
         assert not arg.startswith('--')
         config_file = arg

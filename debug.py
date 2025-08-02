@@ -7,9 +7,11 @@ class Debug:
         if self.debug_batches:
             self.enc = tiktoken.get_encoding("gpt2")
 
-    def inspect_batch(self, iter_num, X, trigger_iters):
+    def inspect_batch(self, iter_num, X, trigger_iters, ix=None):
         if self.debug_batches and self.master_process and iter_num in trigger_iters:
             print(f"--- DEBUG: iter_num {iter_num} ---")
+            if ix is not None:
+                print(f"Batch starts at token indices: {ix.tolist()}")
             try:
                 decoded_text = self.enc.decode(X[0].tolist())
                 print("Decoded text:", decoded_text)
