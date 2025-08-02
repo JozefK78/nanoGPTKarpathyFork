@@ -1,7 +1,7 @@
 # config for training GPT-2 (124M) on a sample of FineWeb-Edu
 # This is a sample run to test the infrastructure on a single GPU.
 
-out_dir = 'out-fineweb'
+out_dir = 'out-fineweb-1BT'
 eval_interval = 200
 log_interval = 10
 always_save_checkpoint = True
@@ -13,7 +13,7 @@ wandb_project = 'fineweb'
 wandb_run_name = 'gpt2-fineweb-sample'
 
 # data
-dataset = 'fineweb_edu_sample'
+dataset = 'fineweb_edu_1BT_sample'
 gradient_accumulation_steps = 5 # for single GPU
 batch_size = 8 # if memory becomes an issue, lower this
 block_size = 1024
@@ -35,3 +35,5 @@ decay_lr = True # whether to decay the learning rate
 warmup_iters = 100 # Changed to match train.py default
 lr_decay_iters = 1000 # Set to max_iters as requested for testing phase
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
+# debug
+debug_batches = False
