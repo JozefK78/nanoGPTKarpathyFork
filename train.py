@@ -46,9 +46,9 @@ wandb_project = 'owt'
 wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
 dataset = 'openwebtext'
-gradient_accumulation_steps = 5 * 8 # used to simulate larger batch sizes
-batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 1024
+total_batch_size = 524288 # 2**19, ~0.5M, in number of tokens
+B = 12 # micro-batch size
+T = 1024 # sequence length
 # model
 n_layer = 12
 n_head = 12
@@ -94,15 +94,21 @@ if ddp:
     seed_offset = ddp_rank # each process gets a different seed
     # world_size number of processes will be training simultaneously, so we can scale
     # down the desired gradient accumulation iterations per process proportionally
-    assert gradient_accumulation_steps % ddp_world_size == 0
-    gradient_accumulation_steps //= ddp_world_size
+    # the gradient accumulation logic is now different, see below
 else:
     # if not ddp, we are running on a single gpu, and one process
     master_process = True
     seed_offset = 0
     ddp_world_size = 1
-tokens_per_iter = gradient_accumulation_steps * ddp_world_size * batch_size * block_size
-print(f"tokens per iteration will be: {tokens_per_iter:,}")
+tokens_per_iter = total_batch_size
+if master_process:
+    print(f"tokens per iteration will be: {tokens_per_iter:,}")
+
+# calculate gradient accumulation steps
+assert tokens_per_iter % (B * T * ddp_world_size) == 0, "total_batch_size must be divisible by B * T * ddp_world_size"
+gradient_accumulation_steps = tokens_per_iter // (B * T * ddp_world_size)
+if master_process:
+    print(f"gradient accumulation steps: {gradient_accumulation_steps}")
 
 if master_process:
     os.makedirs(out_dir, exist_ok=True)
@@ -124,9 +130,9 @@ def get_batch(split):
         data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
     else:
         data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
-    ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
-    y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
+    ix = torch.randint(len(data) - T, (B,))
+    x = torch.stack([torch.from_numpy((data[i:i+T]).astype(np.int64)) for i in ix])
+    y = torch.stack([torch.from_numpy((data[i+1:i+1+T]).astype(np.int64)) for i in ix])
     if device_type == 'cuda':
         # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
         x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
@@ -148,7 +154,7 @@ if os.path.exists(meta_path):
     print(f"found vocab_size = {meta_vocab_size} (inside {meta_path})")
 
 # model init
-model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
+model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=T,
                   bias=bias, vocab_size=None, dropout=dropout) # start with model_args from command line
 if init_from == 'scratch':
     # init a new model from scratch
@@ -169,6 +175,8 @@ elif init_from == 'resume':
     # the rest of the attributes (e.g. dropout) can stay as desired from command line
     for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
         model_args[k] = checkpoint_model_args[k]
+    # T must be updated from the checkpoint
+    T = model_args['block_size']
     # create the model
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
@@ -191,9 +199,9 @@ elif init_from.startswith('gpt2'):
     for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
         model_args[k] = getattr(model.config, k)
 # crop down the model block size if desired, using model surgery
-if block_size < model.config.block_size:
-    model.crop_block_size(block_size)
-    model_args['block_size'] = block_size # so that the checkpoint will have the right value
+if T < model.config.block_size:
+    model.crop_block_size(T)
+    model_args['block_size'] = T # so that the checkpoint will have the right value
 model.to(device)
 
 # initialize a GradScaler. If enabled=False scaler is a no-op
@@ -331,9 +339,10 @@ while True:
         # backward pass, with gradient scaling if training in fp16
         scaler.scale(loss).backward()
     # clip the gradient
+    grad_norm = None
     if grad_clip != 0.0:
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
     # step the optimizer and scaler if training in fp16
     scaler.step(optimizer)
     scaler.update()
@@ -349,18 +358,24 @@ while True:
         # scale up to undo the division above, approximating the true total loss (exact would have been a sum)
         lossf = loss.item() * gradient_accumulation_steps
         if local_iter_num >= 5: # let the training loop settle a bit
-            mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
+            mfu = raw_model.estimate_mfu(B * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
         tokens_per_sec = tokens_per_iter / dt
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%, tok/sec {tokens_per_sec:.2f}")
+        print_str = f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%, tok/sec {tokens_per_sec:.2f}"
+        if grad_norm is not None:
+            print_str += f", grad_norm {grad_norm:.4f}"
+        print(print_str)
         if wandb_log and local_iter_num >= 5:
-            wandb.log({
+            log_dict = {
                 "iter": iter_num,
                 "train/loss": lossf,
                 "mfu": running_mfu * 100,
                 "tokens/sec": tokens_per_iter / dt,
-                "lr": lr
-            }, step=iter_num)
+                "lr": lr,
+            }
+            if grad_norm is not None:
+                log_dict['train/grad_norm'] = grad_norm.item()
+            wandb.log(log_dict, step=iter_num)
     iter_num += 1
     local_iter_num += 1
 

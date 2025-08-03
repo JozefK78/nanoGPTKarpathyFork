@@ -15,9 +15,11 @@ wandb_run_name = 'gpt2-fineweb-sample'
 # data
 #dataset = 'fineweb_edu_sample'
 dataset = '/workspace/training_data/fineweb_edu_10BT'
-gradient_accumulation_steps = 5 # for single GPU
-batch_size = 8 # if memory becomes an issue, lower this
-block_size = 1024
+# total batch size is ~0.5M tokens
+total_batch_size = 524288
+B = 8 # if memory becomes an issue, lower this
+T = 1024
+# gradient_accumulation_steps is calculated automatically in train.py
 
 # model
 # n_layer, n_head, n_embd are not set here, so they will default to GPT-2 (124M) params in model.py
