@@ -6,6 +6,7 @@ import tiktoken
 from datasets import load_dataset, load_from_disk
 
 # --- CONFIGURATION ---
+SAVE_TOKENIZED_DATASET = False # If True, saves a cache of the tokenized dataset for faster re-runs.
 num_proc = 9 # Using the fixed, safe number of processes.
 print(f"--> Using a fixed number of {num_proc} processes.")
 
@@ -20,11 +21,14 @@ os.makedirs(DATA_ROOT, exist_ok=True)
 
 if __name__ == '__main__':
     # --- STAGE 1: TOKENIZATION (Resumable) ---
-    if os.path.exists(TOKENIZED_DATASET_PATH):
+    if SAVE_TOKENIZED_DATASET and os.path.exists(TOKENIZED_DATASET_PATH):
         print(f"--> Found cached tokenized dataset at {TOKENIZED_DATASET_PATH}. Loading from disk...")
         tokenized = load_from_disk(TOKENIZED_DATASET_PATH)
     else:
-        print("--> No cached tokenized dataset found. Starting full processing pipeline...")
+        if SAVE_TOKENIZED_DATASET:
+            print("--> No cached tokenized dataset found. Starting full processing pipeline...")
+        else:
+            print("--> Starting full processing pipeline (tokenized dataset caching is disabled)...")
         # This command will now work because its attempts to write to /root/.cache/huggingface
         # are being redirected to /workspace/hf_cache by the OS.
         print(f"--> Loading raw dataset with {num_proc} processes...")
@@ -44,8 +48,9 @@ if __name__ == '__main__':
             process, remove_columns=['text'], desc="Tokenizing the splits", num_proc=num_proc,
         )
 
-        print(f"--> Saving tokenized dataset to {TOKENIZED_DATASET_PATH} for future runs...")
-        tokenized.save_to_disk(TOKENIZED_DATASET_PATH)
+        if SAVE_TOKENIZED_DATASET:
+            print(f"--> Saving tokenized dataset to {TOKENIZED_DATASET_PATH} for future runs...")
+            tokenized.save_to_disk(TOKENIZED_DATASET_PATH)
 
     # --- STAGE 2: WRITING BINARY FILES ---
     for split, dset in tokenized.items():
