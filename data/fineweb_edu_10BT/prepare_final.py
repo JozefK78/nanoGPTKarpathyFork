@@ -6,7 +6,7 @@ import tiktoken
 from datasets import load_dataset, load_from_disk
 
 # --- CONFIGURATION ---
-num_proc = 32 # Using the fixed, safe number of processes.
+num_proc = 9 # Using the fixed, safe number of processes.
 print(f"--> Using a fixed number of {num_proc} processes.")
 
 # --- PATHS (All on the robust network drive) ---
