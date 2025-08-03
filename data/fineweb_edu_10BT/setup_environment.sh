@@ -7,33 +7,38 @@ set -e
 
 echo "--- Setting up Environment ---"
 
-# --- PART 1: THE *CORRECT* SYMLINK TRICK ---
-echo "[Step 1/2] Preparing the OS-level redirect for the Hugging Face cache..."
+# --- PART 1: ENVIRONMENT-AWARE CACHE REDIRECTION ---
+echo "[Step 1/2] Checking for RunPod environment for cache redirection..."
 
-# The home directory in most Docker containers is /root
-# We are targeting the default cache location that is filling up your 'overlay' filesystem.
-HF_DEFAULT_CACHE_DIR_IN_CONTAINER="/root/.cache/huggingface"
-NETWORK_DRIVE_BASE="/workspace"
-NETWORK_CACHE_TARGET="${NETWORK_DRIVE_BASE}/hf_cache"
+# Only perform the symlink trick if we are in a RunPod-like environment
+if [ -d "/workspace" ]; then
+    echo "RunPod environment detected. Redirecting Hugging Face cache to /workspace."
 
-# First, ensure the parent directory exists inside the container
-mkdir -p /root/.cache
+    # The home directory in most Docker containers is /root
+    HF_DEFAULT_CACHE_DIR_IN_CONTAINER="/root/.cache/huggingface"
+    NETWORK_DRIVE_BASE="/workspace"
+    NETWORK_CACHE_TARGET="${NETWORK_DRIVE_BASE}/hf_cache"
 
-# Delete the problematic directory on the local disk if it exists
-rm -rf "${HF_DEFAULT_CACHE_DIR_IN_CONTAINER}"
+    # First, ensure the parent directory exists inside the container
+    mkdir -p /root/.cache
 
-# Create our target directory on the network drive
-mkdir -p "${NETWORK_CACHE_TARGET}"
+    # Delete the problematic directory on the local disk if it exists
+    rm -rf "${HF_DEFAULT_CACHE_DIR_IN_CONTAINER}"
 
-# Create the symbolic link. This is the most critical step.
-# Any attempt to write to "/root/.cache/huggingface" will now be redirected to "/workspace/hf_cache".
-ln -s "${NETWORK_CACHE_TARGET}" "${HF_DEFAULT_CACHE_DIR_IN_CONTAINER}"
+    # Create our target directory on the network drive
+    mkdir -p "${NETWORK_CACHE_TARGET}"
 
-echo "Redirect successful. All Hugging Face cache operations will now use the network drive."
+    # Create the symbolic link.
+    ln -s "${NETWORK_CACHE_TARGET}" "${HF_DEFAULT_CACHE_DIR_IN_CONTAINER}"
 
-# --- PART 2: SETUP PYTHON ENVIRONMENT ---
-# Although the symlink is the main fix, setting these is still good practice.
-export HF_HOME="${NETWORK_CACHE_TARGET}"
-export HF_DATASETS_CACHE="${NETWORK_CACHE_TARGET}/datasets"
+    echo "Redirect successful. All Hugging Face cache operations will now use the network drive."
 
+    # Set environment variables to point to the new cache location
+    export HF_HOME="${NETWORK_CACHE_TARGET}"
+    export HF_DATASETS_CACHE="${NETWORK_CACHE_TARGET}/datasets"
+else
+    echo "Local environment detected. Skipping cache redirection."
+fi
+
+# --- PART 2: Finalizing Setup ---
 echo "--- Environment setup complete. ---"
