@@ -14,7 +14,7 @@ TOKENIZED_CACHE_PATH="${DATA_OUTPUT_DIR}/tokenized_dataset_cache"
 
 # Local ephemeral drive temp directories
 EPHEMERAL_TMP="/tmp"
-EPHEMERAL_HF_CACHE_DEFAULT=~/.cache/huggingface
+#EPHEMERAL_HF_CACHE_DEFAULT=~/.cache/huggingface
 
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo "!!!                     CLEANUP SCRIPT                     !!!"
@@ -52,6 +52,6 @@ rm -f "${DATA_OUTPUT_DIR}"/*.bin
 # Clean Ephemeral Drive
 echo "Cleaning ephemeral drive..."
 find "${EPHEMERAL_TMP}" -mindepth 1 -delete
-rm -rf "${EPHEMERAL_HF_CACHE_DEFAULT}"
+#rm -rf "${EPHEMERAL_HF_CACHE_DEFAULT}"
 
 echo "Cleanup complete."

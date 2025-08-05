@@ -15,3 +15,5 @@ wandb/
 out-fineweb/train.log
 data/fineweb_edu_10BT/tokenized_dataset_cache/
 *.arrow
+training*.log
+training.log
