@@ -165,11 +165,19 @@ if init_from == 'scratch':
     model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50304
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
-elif init_from == 'resume':
-    print(f"Resuming training from {out_dir}")
+if init_from == 'resume':
+    if master_process:
+        print(f"Resuming training from {out_dir}")
     # resume training from a checkpoint.
     ckpt_path = os.path.join(out_dir, 'ckpt.pt')
+
+    if master_process:
+        print("loading checkpoint...")
+        t0 = time.time()
     checkpoint = torch.load(ckpt_path, map_location=device)
+    if master_process:
+        t1 = time.time()
+        print(f"checkpoint loaded in {t1-t0:.2f}s")
     checkpoint_model_args = checkpoint['model_args']
     # force these config attributes to be equal otherwise we can't even resume training
     # the rest of the attributes (e.g. dropout) can stay as desired from command line
@@ -187,9 +195,18 @@ elif init_from == 'resume':
     for k,v in list(state_dict.items()):
         if k.startswith(unwanted_prefix):
             state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+    if master_process:
+        print("loading model state...")
+        t0 = time.time()
     model.load_state_dict(state_dict)
+    if master_process:
+        t1 = time.time()
+        print(f"model loaded in {t1-t0:.2f}s")
     iter_num = checkpoint['iter_num']
     best_val_loss = checkpoint['best_val_loss']
+    # wait for all processes to reach this point, ensuring checkpoint is fully written
+    if ddp:
+        torch.distributed.barrier()
 elif init_from.endswith('.pt'):
     print(f"Initializing from checkpoint: {init_from}")
     checkpoint = torch.load(init_from, map_location=device)
@@ -311,7 +328,7 @@ while True:
                 "val/loss": losses['val'],
                 "lr": lr,
             }
-            if iter_num > 0:
+            if local_iter_num > 0:
                 metrics['mfu'] = running_mfu * 100
                 metrics['tokens/sec'] = tokens_per_iter/dt
             wandb.log(metrics)

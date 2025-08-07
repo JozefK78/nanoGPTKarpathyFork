@@ -2,10 +2,13 @@
 # This is a sample run to test the infrastructure on a single GPU.
 
 out_dir = 'out-fineweb-10BT'
-eval_interval = 2000
+eval_interval = 1000
 log_interval = 1
 always_save_checkpoint = True
 eval_iters = 200
+
+init_from = 'resume' # 'scratch' or 'resume'
+
 
 # wandb logging
 wandb_log = True
@@ -27,8 +30,8 @@ T = 1024
 
 # adamw optimizer
 learning_rate = 6e-4 # max learning rate
-max_iters = 20000 # total number of training iterations (kept at 1000 as requested)
-weight_decay = 1e-1
+max_iters = 32000 # total number of training iterations (kept at 1000 as requested)
+weight_decay = 2e-2
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
