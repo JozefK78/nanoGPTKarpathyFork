@@ -3,6 +3,27 @@
 >>> python sample.py --out_dir=out-fineweb-10BT --start="A short poem about my cat:" --num_samples=3 --seed=1389
 ---------------
 A short poem about my cat:
+My Cat and I
+I am so far from thee,
+My sister, I cannot come
+To give thee another time or to walk
+To give a drink to drink
+When I so speak,
+I do not drink at this time.
+I do not know how far this night
+The moon, that we may see.
+I see her, my sister, my sister,
+Where all this mist-lights are.
+My sister, if she is not dead
+The moon, that would blow at her
+The stars, and her stars,
+My sister, if she be dead,
+I will give thee a drink.
+Oh dear, mother, if I see
+A cat when the moon lies still
+
+---------------
+A short poem about my cat:
 ‘Cathy is happy to see me, too gentle,
 and sweet a little, too friendly.
 I’ve walked him many times,
