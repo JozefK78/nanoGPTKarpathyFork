@@ -58,6 +58,14 @@ And they’ll say,
 ‘This is my ears.
 But I’ll talk to them.
 ---------------
+----------------
+---------------
+A short poem about my dog:
+"Can I not give you the smell?"
+"Is it not sweet?"
+"How can a man have no smell of that?"
+"I must say nothing,
+That I am a dog."
 ```
 
 # nanoGPT
