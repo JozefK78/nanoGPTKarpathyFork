@@ -1,5 +1,6 @@
-
-```python sample.py --out_dir=out-fineweb-10BT --start="A short poem about my cat:" --num_samples=3 --seed=1389```
+# Some own results
+```
+python sample.py --out_dir=out-fineweb-10BT --start="A short poem about my cat:" --num_samples=3 --seed=1389
 ---------------
 A short poem about my cat:
 ‘Cathy is happy to see me, too gentle,
@@ -17,6 +18,7 @@ river, but it’s not there yet.
 ‘Tis possible to go there,’ I said,
 and I was right, too
 ---------------
+```
 
 # nanoGPT
 
