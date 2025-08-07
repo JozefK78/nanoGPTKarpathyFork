@@ -1,13 +1,13 @@
 # config for training GPT-2 (124M) on a sample of FineWeb-Edu
 # This is a sample run to test the infrastructure on a single GPU.
 
-out_dir = 'out-fineweb-10BT'
+out_dir = 'out-fineweb-10BT-2k-ctx'
 eval_interval = 1000
 log_interval = 1
 always_save_checkpoint = True
 eval_iters = 200
 
-init_from = 'resume' # 'scratch' or 'resume'
+#init_from = 'resume' # 'scratch' or 'resume'
 
 
 # wandb logging

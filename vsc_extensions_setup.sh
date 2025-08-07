@@ -49,3 +49,8 @@ fi
 "$CODE_EXECUTABLE" --install-extension /workspace/vsc_stuff/rooveterinaryinc.roo-cline-3.23.15.vsix
 
 echo "Roo Code extension installation command executed."
+
+# Run the installation command using the found path
+"$CODE_EXECUTABLE" --install-extension /workspace/vsc_stuff/ms-python.python-2025.10.1-linux-x64.vsix
+
+echo "Python extension installation command executed."

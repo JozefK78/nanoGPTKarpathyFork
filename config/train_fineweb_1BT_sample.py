@@ -5,7 +5,7 @@ out_dir = 'out-fineweb-1BT'
 eval_interval = 200
 log_interval = 10
 always_save_checkpoint = True
-eval_iters = 200
+eval_iters = 100
 
 # wandb logging
 wandb_log = True

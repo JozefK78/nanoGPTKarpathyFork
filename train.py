@@ -165,11 +165,19 @@ if init_from == 'scratch':
     model_args['vocab_size'] = meta_vocab_size if meta_vocab_size is not None else 50304
     gptconf = GPTConfig(**model_args)
     model = GPT(gptconf)
-elif init_from == 'resume':
-    print(f"Resuming training from {out_dir}")
+if init_from == 'resume':
+    if master_process:
+        print(f"Resuming training from {out_dir}")
     # resume training from a checkpoint.
     ckpt_path = os.path.join(out_dir, 'ckpt.pt')
+
+    if master_process:
+        print("loading checkpoint...")
+        t0 = time.time()
     checkpoint = torch.load(ckpt_path, map_location=device)
+    if master_process:
+        t1 = time.time()
+        print(f"checkpoint loaded in {t1-t0:.2f}s")
     checkpoint_model_args = checkpoint['model_args']
     # force these config attributes to be equal otherwise we can't even resume training
     # the rest of the attributes (e.g. dropout) can stay as desired from command line
@@ -187,9 +195,18 @@ elif init_from == 'resume':
     for k,v in list(state_dict.items()):
         if k.startswith(unwanted_prefix):
             state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+    if master_process:
+        print("loading model state...")
+        t0 = time.time()
     model.load_state_dict(state_dict)
+    if master_process:
+        t1 = time.time()
+        print(f"model loaded in {t1-t0:.2f}s")
     iter_num = checkpoint['iter_num']
     best_val_loss = checkpoint['best_val_loss']
+    # wait for all processes to reach this point, ensuring checkpoint is fully written
+    if ddp:
+        torch.distributed.barrier()
 elif init_from.endswith('.pt'):
     print(f"Initializing from checkpoint: {init_from}")
     checkpoint = torch.load(init_from, map_location=device)
@@ -274,6 +291,17 @@ def get_lr(it):
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
     return min_lr + coeff * (learning_rate - min_lr)
 
+# resumed learning rate ratio
+resumed_lr_schedule_ratio = 1.0
+if init_from == 'resume' and decay_lr:
+    lr_resume = optimizer.param_groups[0]['lr']
+    lr_scheduled = get_lr(iter_num)
+    if lr_scheduled > 1e-9: # guard against division by zero
+        resumed_lr_schedule_ratio = lr_resume / lr_scheduled
+    if master_process:
+        print(f"resuming from iter {iter_num} with learning rate {lr_resume:.6f}")
+        print(f"lr schedule suggests {lr_scheduled:.6f}, using ratio {resumed_lr_schedule_ratio:.4f}")
+
 # logging
 if wandb_log and master_process:
     import wandb
@@ -297,6 +325,7 @@ while True:
 
     # determine and set the learning rate for this iteration
     lr = get_lr(iter_num) if decay_lr else learning_rate
+    lr *= resumed_lr_schedule_ratio
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
@@ -311,13 +340,13 @@ while True:
                 "val/loss": losses['val'],
                 "lr": lr,
             }
-            if iter_num > 0:
+            if local_iter_num > 0:
                 metrics['mfu'] = running_mfu * 100
                 metrics['tokens/sec'] = tokens_per_iter/dt
             wandb.log(metrics)
         if losses['val'] < best_val_loss or always_save_checkpoint:
             best_val_loss = losses['val']
-            if iter_num > 0:
+            if iter_num > 0 and local_iter_num > 0:
                 checkpoint = {
                     'model': raw_model.state_dict(),
                     'optimizer': optimizer.state_dict(),
