@@ -1,4 +1,23 @@
 
+```python sample.py --out_dir=out-fineweb-10BT --start="A short poem about my cat:" --num_samples=3 --seed=1389```
+---------------
+A short poem about my cat:
+‘Cathy is happy to see me, too gentle,
+and sweet a little, too friendly.
+I’ve walked him many times,
+and always seemed to think
+of him as a friend.
+When he’s very young he seems
+to be very soft, but when he’s as old as
+A child, his softness is worth it because a
+little is worth a lot.
+On my way down the river I’ve come
+to a point where I can see a big tangle of the
+river, but it’s not there yet.
+‘Tis possible to go there,’ I said,
+and I was right, too
+---------------
+
 # nanoGPT
 
 ![nanoGPT](assets/nanogpt.jpg)
