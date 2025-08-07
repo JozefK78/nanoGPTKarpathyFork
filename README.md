@@ -39,6 +39,25 @@ river, but it’s not there yet.
 ‘Tis possible to go there,’ I said,
 and I was right, too
 ---------------
+A short poem about my cat:
+My cat is a cat.
+My cat is a cat.
+And I’m a cat.
+You’re a cat.
+You’re a cat.
+But, if you’re not a cat, why do cats have ears?
+When I see my daughter,
+She’s a dog.
+But, the cat says,
+They’re all ears.
+I’m a cat.
+So I’ll go to the cat.
+So these are the animals’ ears.
+And these are my ears.
+And they’ll say,
+‘This is my ears.
+But I’ll talk to them.
+---------------
 ```
 
 # nanoGPT
