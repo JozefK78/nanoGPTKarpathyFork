@@ -299,8 +299,8 @@ if init_from == 'resume' and decay_lr:
     if lr_scheduled > 1e-9: # guard against division by zero
         resumed_lr_schedule_ratio = lr_resume / lr_scheduled
     if master_process:
-        print(f"resuming from iter {iter_num} with learning rate {lr_resume:.6f}")
-        print(f"lr schedule suggests {lr_scheduled:.6f}, using ratio {resumed_lr_schedule_ratio:.4f}")
+        print(f"resuming from iter {iter_num} with learning rate {lr_resume:.2e}")
+        print(f"lr schedule suggests {lr_scheduled:.2e}, using ratio {resumed_lr_schedule_ratio:.3f}")
 
 # logging
 if wandb_log and master_process:
