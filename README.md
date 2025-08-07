@@ -1,6 +1,6 @@
 # Some own results
 ```
-python sample.py --out_dir=out-fineweb-10BT --start="A short poem about my cat:" --num_samples=3 --seed=1389
+>>> python sample.py --out_dir=out-fineweb-10BT --start="A short poem about my cat:" --num_samples=3 --seed=1389
 ---------------
 A short poem about my cat:
 ‘Cathy is happy to see me, too gentle,
